@@ -1,4 +1,5 @@
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import { supabase, isSupabaseConfigured } from "./lib/supabase";
 
 // ─── CONSTANTS ───────────────────────────────────────────────────────────────
 
@@ -421,6 +422,27 @@ function loadSources() {
   return INITIAL_SOURCES;
 }
 
+// ─── SUPABASE HELPERS ────────────────────────────────────────────────────────
+
+function toRow(src) {
+  return {
+    id: src.id, stream_id: src.streamId, title: src.title, org: src.org,
+    url: src.url, description: src.description, tags: src.tags,
+    type: src.type, role: src.role, cadence: src.cadence,
+  };
+}
+
+function fromRow(row) {
+  return {
+    id: row.id, streamId: row.stream_id, title: row.title, org: row.org,
+    url: row.url, description: row.description, tags: row.tags || [],
+    type: row.type, role: row.role, cadence: row.cadence,
+    updates: (row.source_updates || [])
+      .sort((a, b) => (b.created_at || "").localeCompare(a.created_at || ""))
+      .map(u => ({ date: u.date, note: u.note })),
+  };
+}
+
 export default function ResearchBrain() {
   const [sources,setSources]         = useState(loadSources);
   const [activeStreamId,setActiveStreamId] = useState("dma");
@@ -439,7 +461,17 @@ export default function ResearchBrain() {
   const [digestTyping,setDigestTyping]   = useState(false);
   const [digestShown,setDigestShown]     = useState("");
 
-  // Persist sources to localStorage on every change
+  // Load from Supabase on mount (overrides localStorage when configured and data exists)
+  useEffect(()=>{
+    if(!isSupabaseConfigured)return;
+    (async()=>{
+      const{data,error}=await supabase.from("sources").select("*, source_updates(*)").order("created_at");
+      if(error||!data||data.length===0)return;
+      setSources(data.map(fromRow));
+    })();
+  },[]);
+
+  // Persist sources to localStorage as offline fallback
   useEffect(()=>{
     try { localStorage.setItem(STORAGE_KEY, JSON.stringify(sources)); } catch {}
   },[sources]);
@@ -476,17 +508,35 @@ export default function ResearchBrain() {
 
   useEffect(()=>{setDigestShown(stream.digest.summary);setDigestTyping(false);},[activeStreamId]);
 
-  const saveUpdate=id=>{
+  const saveUpdate=async id=>{
     if(!editText.trim())return;
     const date=clock.toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
     setSources(prev=>prev.map(s=>s.id===id?{...s,updates:[{date,note:editText},...s.updates]}:s));
     setEditingId(null);setEditText("");showToast("Update logged ✓");
+    if(isSupabaseConfigured){
+      await supabase.from("source_updates").insert({source_id:id,date,note:editText});
+    }
   };
-  const addSource=src=>{setSources(prev=>[...prev,src]);showToast(`"${src.title}" added ✓`);};
-  const resetToDefaults=()=>{
-    if(window.confirm("Reset all sources to defaults? This will remove any sources you've added.")){
-      setSources(INITIAL_SOURCES);
-      showToast("Reset to default sources ✓");
+  const addSource=async src=>{
+    setSources(prev=>[...prev,src]);showToast(`"${src.title}" added ✓`);
+    if(isSupabaseConfigured){
+      await supabase.from("sources").upsert(toRow(src));
+      if(src.updates[0]){
+        await supabase.from("source_updates").insert({source_id:src.id,date:src.updates[0].date,note:src.updates[0].note});
+      }
+    }
+  };
+  const resetToDefaults=async()=>{
+    if(!window.confirm("Reset all sources to defaults? This will remove any sources you've added."))return;
+    setSources(INITIAL_SOURCES);
+    showToast("Reset to default sources ✓");
+    if(isSupabaseConfigured){
+      const ids=sources.map(s=>s.id);
+      if(ids.length>0)await supabase.from("sources").delete().in("id",ids);
+      await supabase.from("sources").upsert(INITIAL_SOURCES.map(toRow));
+      await supabase.from("source_updates").upsert(
+        INITIAL_SOURCES.flatMap(s=>s.updates.map(u=>({source_id:s.id,date:u.date,note:u.note})))
+      );
     }
   };
   const statFor=sid=>{const s=sources.filter(x=>x.streamId===sid);return{total:s.length,foundational:s.filter(x=>x.role==="foundational").length};};
