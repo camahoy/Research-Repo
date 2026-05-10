@@ -333,6 +333,79 @@ function Drawer({open,onClose,activeStream,streams,onSave,clock}) {
   );
 }
 
+// ─── SOURCES TABLE ───────────────────────────────────────────────────────────
+
+function SourcesTable({ sources, setActiveTag, setView }) {
+  const [tblSearch, setTblSearch] = useState("");
+  const [tblStream, setTblStream] = useState("all");
+  const [tblRole, setTblRole] = useState("all");
+  const filtered = sources.filter(s =>
+    (tblStream === "all" || s.streamId === tblStream) &&
+    (tblRole === "all" || s.role === tblRole) &&
+    (!tblSearch || s.title.toLowerCase().includes(tblSearch.toLowerCase()) || s.org.toLowerCase().includes(tblSearch.toLowerCase()) || s.tags.some(t => t.toLowerCase().includes(tblSearch.toLowerCase())))
+  );
+  return (
+    <div>
+      <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap",alignItems:"center"}}>
+        <input value={tblSearch} onChange={e=>setTblSearch(e.target.value)} placeholder="Search title, org, tag…" style={{maxWidth:200,flex:"none",fontSize:11,padding:"6px 10px",background:"#faf8f3",border:"1px solid #e0dbd0"}}/>
+        <select value={tblStream} onChange={e=>setTblStream(e.target.value)} style={{width:"auto",fontSize:10,padding:"6px 10px"}}>
+          <option value="all">All streams</option>
+          {STREAMS.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}
+        </select>
+        <select value={tblRole} onChange={e=>setTblRole(e.target.value)} style={{width:"auto",fontSize:10,padding:"6px 10px"}}>
+          <option value="all">All roles</option>
+          {Object.entries(ROLE_LABELS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
+        </select>
+        <span style={{fontSize:9,color:"#a09888",marginLeft:"auto"}}>{filtered.length} of {sources.length} sources</span>
+      </div>
+
+      {/* Table header */}
+      <div style={{display:"grid",gridTemplateColumns:"24px 2fr 1.2fr 0.8fr 0.7fr 0.7fr 2.4fr",gap:"0 12px",padding:"6px 12px",background:"#1a1814",borderRadius:"2px 2px 0 0",marginBottom:1}}>
+        {["","TITLE / ORGANISATION","STREAM","TYPE","ROLE","PUBLISHED","SUMMARY & RELEVANCE"].map((h,i)=>(
+          <div key={i} style={{fontSize:8,color:"#6a6458",letterSpacing:".14em"}}>{h}</div>
+        ))}
+      </div>
+
+      {/* Table rows */}
+      {filtered.map((src,i)=>{
+        const s=STREAMS.find(st=>st.id===src.streamId);
+        const rl=ROLE_LABELS[src.role]||ROLE_LABELS.background;
+        const tc=TYPE_COLORS[src.type]||"#e0dbd0";
+        const pubDate=src.cadence?.startsWith("Static")?src.cadence.replace("Static ","").replace(/[()]/g,""):src.updates[0]?.date||"—";
+        return(
+          <div key={src.id} style={{display:"grid",gridTemplateColumns:"24px 2fr 1.2fr 0.8fr 0.7fr 0.7fr 2.4fr",gap:"0 12px",padding:"11px 12px",background:i%2===0?"#faf8f3":"#f4f1eb",borderBottom:"1px solid #e8e3d8",alignItems:"start"}}>
+            {/* Dot */}
+            <div style={{paddingTop:3}}><div style={{width:6,height:6,borderRadius:"50%",background:s?.color,border:`1px solid ${s?.dim}`}}/></div>
+            {/* Title */}
+            <div>
+              <a href={src.url} target="_blank" rel="noopener noreferrer" style={{fontSize:11,fontWeight:500,color:"#1a1814",lineHeight:1.4,display:"block",marginBottom:3,borderBottom:"1px solid #c8c2b6",textDecoration:"none"}}>{src.title}</a>
+              <div style={{fontSize:9,color:"#8a8070"}}>{src.org}</div>
+              <div style={{display:"flex",gap:3,flexWrap:"wrap",marginTop:5}}>{src.tags.slice(0,4).map(t=><span key={t} className="chip" style={{fontSize:8}} onClick={()=>{setActiveTag(t);setView("tags");}}>{t}</span>)}{src.tags.length>4&&<span style={{fontSize:8,color:"#a09888"}}>+{src.tags.length-4}</span>}</div>
+            </div>
+            {/* Stream */}
+            <div style={{fontSize:9,color:"#6a6458",paddingTop:2}}>{s?.label}</div>
+            {/* Type */}
+            <div style={{paddingTop:2}}><span className="tb" style={{background:tc+"44",color:"#4a4438",fontSize:8}}>{src.type}</span></div>
+            {/* Role */}
+            <div style={{paddingTop:2}}><span className="rb" style={{background:rl.color,color:rl.text,fontSize:8}}>{rl.label}</span></div>
+            {/* Date */}
+            <div style={{fontSize:9,color:"#8a8070",paddingTop:2}}>{pubDate}</div>
+            {/* Summary */}
+            <div>
+              <div style={{fontSize:10,color:"#4a4438",lineHeight:1.6,fontStyle:"italic",marginBottom:4}}>{src.updates[0]?.note}</div>
+              <div style={{fontSize:9,color:"#a09888",lineHeight:1.5}}>{src.description}</div>
+            </div>
+          </div>
+        );
+      })}
+
+      {filtered.length===0&&(
+        <div style={{textAlign:"center",padding:"40px 0",color:"#c8c2b6",fontSize:11}}>NO SOURCES MATCH YOUR FILTERS</div>
+      )}
+    </div>
+  );
+}
+
 // ─── MAIN APP ────────────────────────────────────────────────────────────────
 
 const STORAGE_KEY = "research-repo-sources-v1";
@@ -580,77 +653,8 @@ export default function ResearchBrain() {
                 </div>
               </div>
 
-              {/* Filter bar */}
-              {(()=>{
-                const [tblSearch,setTblSearch]=useState("");
-                const [tblStream,setTblStream]=useState("all");
-                const [tblRole,setTblRole]=useState("all");
-                const filtered=sources.filter(s=>
-                  (tblStream==="all"||s.streamId===tblStream)&&
-                  (tblRole==="all"||s.role===tblRole)&&
-                  (!tblSearch||s.title.toLowerCase().includes(tblSearch.toLowerCase())||s.org.toLowerCase().includes(tblSearch.toLowerCase())||s.tags.some(t=>t.toLowerCase().includes(tblSearch.toLowerCase())))
-                );
-                return(
-                  <div>
-                    <div style={{display:"flex",gap:8,marginBottom:16,flexWrap:"wrap",alignItems:"center"}}>
-                      <input value={tblSearch} onChange={e=>setTblSearch(e.target.value)} placeholder="Search title, org, tag…" style={{maxWidth:200,flex:"none",fontSize:11,padding:"6px 10px",background:"#faf8f3",border:"1px solid #e0dbd0"}}/>
-                      <select value={tblStream} onChange={e=>setTblStream(e.target.value)} style={{width:"auto",fontSize:10,padding:"6px 10px"}}>
-                        <option value="all">All streams</option>
-                        {STREAMS.map(s=><option key={s.id} value={s.id}>{s.label}</option>)}
-                      </select>
-                      <select value={tblRole} onChange={e=>setTblRole(e.target.value)} style={{width:"auto",fontSize:10,padding:"6px 10px"}}>
-                        <option value="all">All roles</option>
-                        {Object.entries(ROLE_LABELS).map(([k,v])=><option key={k} value={k}>{v.label}</option>)}
-                      </select>
-                      <span style={{fontSize:9,color:"#a09888",marginLeft:"auto"}}>{filtered.length} of {sources.length} sources</span>
-                    </div>
-
-                    {/* Table header */}
-                    <div style={{display:"grid",gridTemplateColumns:"24px 2fr 1.2fr 0.8fr 0.7fr 0.7fr 2.4fr",gap:"0 12px",padding:"6px 12px",background:"#1a1814",borderRadius:"2px 2px 0 0",marginBottom:1}}>
-                      {["","TITLE / ORGANISATION","STREAM","TYPE","ROLE","PUBLISHED","SUMMARY & RELEVANCE"].map((h,i)=>(
-                        <div key={i} style={{fontSize:8,color:"#6a6458",letterSpacing:".14em"}}>{h}</div>
-                      ))}
-                    </div>
-
-                    {/* Table rows */}
-                    {filtered.map((src,i)=>{
-                      const s=STREAMS.find(st=>st.id===src.streamId);
-                      const rl=ROLE_LABELS[src.role]||ROLE_LABELS.background;
-                      const tc=TYPE_COLORS[src.type]||"#e0dbd0";
-                      const pubDate=src.cadence?.startsWith("Static")?src.cadence.replace("Static ","").replace(/[()]/g,""):src.updates[0]?.date||"—";
-                      return(
-                        <div key={src.id} style={{display:"grid",gridTemplateColumns:"24px 2fr 1.2fr 0.8fr 0.7fr 0.7fr 2.4fr",gap:"0 12px",padding:"11px 12px",background:i%2===0?"#faf8f3":"#f4f1eb",borderBottom:"1px solid #e8e3d8",alignItems:"start"}}>
-                          {/* Dot */}
-                          <div style={{paddingTop:3}}><div style={{width:6,height:6,borderRadius:"50%",background:s?.color,border:`1px solid ${s?.dim}`}}/></div>
-                          {/* Title */}
-                          <div>
-                            <a href={src.url} target="_blank" rel="noopener noreferrer" style={{fontSize:11,fontWeight:500,color:"#1a1814",lineHeight:1.4,display:"block",marginBottom:3,borderBottom:"1px solid #c8c2b6",textDecoration:"none"}}>{src.title}</a>
-                            <div style={{fontSize:9,color:"#8a8070"}}>{src.org}</div>
-                            <div style={{display:"flex",gap:3,flexWrap:"wrap",marginTop:5}}>{src.tags.slice(0,4).map(t=><span key={t} className="chip" style={{fontSize:8}} onClick={()=>{setActiveTag(t);setView("tags");}}>{t}</span>)}{src.tags.length>4&&<span style={{fontSize:8,color:"#a09888"}}>+{src.tags.length-4}</span>}</div>
-                          </div>
-                          {/* Stream */}
-                          <div style={{fontSize:9,color:"#6a6458",paddingTop:2}}>{s?.label}</div>
-                          {/* Type */}
-                          <div style={{paddingTop:2}}><span className="tb" style={{background:tc+"44",color:"#4a4438",fontSize:8}}>{src.type}</span></div>
-                          {/* Role */}
-                          <div style={{paddingTop:2}}><span className="rb" style={{background:rl.color,color:rl.text,fontSize:8}}>{rl.label}</span></div>
-                          {/* Date */}
-                          <div style={{fontSize:9,color:"#8a8070",paddingTop:2}}>{pubDate}</div>
-                          {/* Summary */}
-                          <div>
-                            <div style={{fontSize:10,color:"#4a4438",lineHeight:1.6,fontStyle:"italic",marginBottom:4}}>{src.updates[0]?.note}</div>
-                            <div style={{fontSize:9,color:"#a09888",lineHeight:1.5}}>{src.description}</div>
-                          </div>
-                        </div>
-                      );
-                    })}
-
-                    {filtered.length===0&&(
-                      <div style={{textAlign:"center",padding:"40px 0",color:"#c8c2b6",fontSize:11}}>NO SOURCES MATCH YOUR FILTERS</div>
-                    )}
-                  </div>
-                );
-              })()}
+              {/* Filter bar + table */}
+              <SourcesTable sources={sources} setActiveTag={setActiveTag} setView={setView} />
             </div>
           )}
 
