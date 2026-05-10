@@ -235,12 +235,55 @@ function Drawer({open,onClose,activeStream,streams,onSave,clock}) {
   const [urlInput,setUrlInput]=useState("");
   const [parsing,setParsing]=useState(false);
   const [form,setForm]=useState(EMPTY);
+  const [pmQuery,setPmQuery]=useState("");
+  const [pmResults,setPmResults]=useState([]);
+  const [pmLoading,setPmLoading]=useState(false);
+  const [pmError,setPmError]=useState("");
+  const [pmImporting,setPmImporting]=useState(null);
   const ref=useRef();
-  useEffect(()=>{if(open){setStep("url");setUrlInput("");setForm(EMPTY);setTimeout(()=>ref.current?.focus(),120);}},[open]);
+  useEffect(()=>{if(open){setStep("url");setUrlInput("");setForm(EMPTY);setPmQuery("");setPmResults([]);setPmError("");setTimeout(()=>ref.current?.focus(),120);}},[open]);
   const go=()=>{
     if(!urlInput.trim())return;
     setParsing(true);
     setTimeout(()=>{const{org,type,cleanUrl}=parseUrl(urlInput);setForm(f=>({...f,url:cleanUrl,org,type}));setParsing(false);setStep("form");},640);
+  };
+  const searchPubmed=async()=>{
+    if(!pmQuery.trim())return;
+    setPmLoading(true);setPmError("");setPmResults([]);
+    try{
+      const sr=await fetch(`https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esearch.fcgi?db=pubmed&term=${encodeURIComponent(pmQuery)}&retmode=json&retmax=10`);
+      const sd=await sr.json();
+      const ids=sd.esearchresult?.idlist||[];
+      if(ids.length===0){setPmLoading(false);return;}
+      const mr=await fetch(`https://eutils.ncbi.nlm.nih.gov/entrez/eutils/esummary.fcgi?db=pubmed&id=${ids.join(",")}&retmode=json`);
+      const md=await mr.json();
+      setPmResults(ids.map(id=>{
+        const d=md.result?.[id];if(!d)return null;
+        const pts=(d.pubtype||[]).map(t=>t.toLowerCase());
+        const type=pts.includes("systematic review")?"Systematic Review":pts.includes("randomized controlled trial")?"Clinical Study":"Peer-Reviewed Journal";
+        return{pmid:id,title:d.title||"",journal:d.source||"",year:d.pubdate?.slice(0,4)||"",type};
+      }).filter(Boolean));
+    }catch{setPmError("Search failed — check your connection and try again.");}
+    setPmLoading(false);
+  };
+  const importPubmed=async(result)=>{
+    setPmImporting(result.pmid);
+    let description="";
+    try{
+      const r=await fetch(`https://eutils.ncbi.nlm.nih.gov/entrez/eutils/efetch.fcgi?db=pubmed&id=${result.pmid}&rettype=abstract&retmode=text`);
+      const txt=await r.text();
+      const parts=txt.split("\n\n");
+      description=parts.slice(1).join(" ").replace(/\s+/g," ").trim();
+      if(description.length>600)description=description.slice(0,600)+"…";
+    }catch{}
+    setForm(f=>({...f,
+      title:result.title,org:result.journal,
+      url:`https://pubmed.ncbi.nlm.nih.gov/${result.pmid}/`,
+      description,tags:"#PubMed-flagged",
+      type:result.type,role:"supportive",
+      cadence:result.year?`Static (${result.year})`:"Static",
+    }));
+    setPmImporting(null);setStep("form");
   };
   const save=()=>{
     if(!form.title||!form.url)return;
@@ -264,10 +307,11 @@ function Drawer({open,onClose,activeStream,streams,onSave,clock}) {
           <button onClick={onClose} style={{background:"none",border:"none",color:"#6a6458",cursor:"pointer",fontSize:20,lineHeight:1,padding:4}}>×</button>
         </div>
         <div style={{display:"flex",borderBottom:"1px solid #e0dbd0"}}>
-          {[["url","01 · Paste URL"],["form","02 · Fill Details"]].map(([s,l])=>(
-            <div key={s} style={{flex:1,padding:"10px 0",textAlign:"center",fontSize:9,letterSpacing:".12em",color:step===s?"#1a1814":"#a09888",borderBottom:step===s?"2px solid #1a1814":"2px solid transparent",transition:"all .15s"}}>{l}</div>
+          {[["url","01 · Paste URL"],["pubmed","02 · PubMed Search"],["form","03 · Fill Details"]].map(([s,l])=>(
+            <div key={s} onClick={()=>s!=="form"&&setStep(s)} style={{flex:1,padding:"10px 0",textAlign:"center",fontSize:9,letterSpacing:".12em",color:step===s?"#1a1814":"#a09888",borderBottom:step===s?"2px solid #1a1814":"2px solid transparent",transition:"all .15s",cursor:s!=="form"?"pointer":"default"}}>{l}</div>
           ))}
         </div>
+
         {step==="url"&&(
           <div style={{padding:24,flex:1,overflowY:"auto"}}>
             <p style={{fontSize:11,color:"#6a6458",lineHeight:1.7,marginBottom:20}}>Paste a URL — the tool auto-detects the organisation and source type from known domains.</p>
@@ -286,6 +330,36 @@ function Drawer({open,onClose,activeStream,streams,onSave,clock}) {
             ))}
           </div>
         )}
+
+        {step==="pubmed"&&(
+          <div style={{padding:24,flex:1,overflowY:"auto"}}>
+            <p style={{fontSize:11,color:"#6a6458",lineHeight:1.7,marginBottom:16}}>Search PubMed directly. Selecting a result auto-populates the form with title, journal, abstract, and tags.</p>
+            <div style={{display:"flex",gap:8,marginBottom:16}}>
+              <input value={pmQuery} onChange={e=>setPmQuery(e.target.value)} onKeyDown={e=>e.key==="Enter"&&searchPubmed()} placeholder="e.g. teach-back discharge RCT" style={{flex:1,fontSize:11,padding:"8px 10px"}}/>
+              <button onClick={searchPubmed} disabled={!pmQuery.trim()||pmLoading} style={{padding:"8px 14px",background:pmQuery.trim()?"#1a1814":"#e0dbd0",color:pmQuery.trim()?"#f4f1eb":"#a09888",border:"none",fontFamily:"'IBM Plex Mono',monospace",fontSize:10,letterSpacing:".1em",cursor:pmQuery.trim()?"pointer":"default",borderRadius:2,whiteSpace:"nowrap",flexShrink:0}}>
+                {pmLoading?"…":"SEARCH"}
+              </button>
+            </div>
+            {pmError&&<div style={{fontSize:10,color:"#c04040",marginBottom:12,padding:"8px 12px",background:"#fdf0f0",border:"1px solid #f0d0d0",borderRadius:2}}>{pmError}</div>}
+            {pmLoading&&<div style={{fontSize:10,color:"#a09888",textAlign:"center",padding:"24px 0",letterSpacing:".1em"}}>SEARCHING PUBMED…</div>}
+            {!pmLoading&&pmResults.length===0&&pmQuery&&!pmError&&(
+              <div style={{fontSize:10,color:"#c8c2b6",textAlign:"center",padding:"24px 0"}}>No results found. Try a different query.</div>
+            )}
+            {pmResults.map(r=>(
+              <div key={r.pmid} style={{background:"#faf8f3",border:"1px solid #e0dbd0",borderRadius:2,padding:"12px 14px",marginBottom:8,position:"relative"}}>
+                <div style={{fontSize:8,color:"#a09888",letterSpacing:".1em",marginBottom:4}}>PMID {r.pmid} · {r.journal} · {r.year}</div>
+                <div style={{fontSize:11,fontWeight:500,color:"#1a1814",lineHeight:1.5,marginBottom:8}}>{r.title}</div>
+                <div style={{display:"flex",alignItems:"center",gap:8}}>
+                  <span style={{fontSize:8,padding:"2px 7px",background:"#A3E8B8"+"44",borderRadius:2,color:"#4a4438"}}>{r.type}</span>
+                  <button onClick={()=>importPubmed(r)} disabled={pmImporting===r.pmid} style={{marginLeft:"auto",padding:"5px 12px",background:"#1a1814",color:"#f4f1eb",border:"none",fontFamily:"'IBM Plex Mono',monospace",fontSize:9,letterSpacing:".1em",cursor:"pointer",borderRadius:2}}>
+                    {pmImporting===r.pmid?"IMPORTING…":"IMPORT →"}
+                  </button>
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
         {step==="form"&&(
           <div style={{flex:1,overflowY:"auto",padding:24}}>
             <div style={{background:"#faf8f3",border:"1px solid #e0dbd0",borderRadius:2,padding:"10px 14px",marginBottom:18,display:"flex",gap:12,alignItems:"center"}}>
@@ -496,9 +570,32 @@ export default function ResearchBrain() {
 
   const showToast=msg=>{setToast(msg);setTimeout(()=>setToast(null),2800);};
 
-  const runDigest=()=>{
-    const full=stream.digest.summary;
+  const ANTHROPIC_KEY = import.meta.env.VITE_ANTHROPIC_API_KEY;
+
+  const runDigest=async()=>{
     setDigestShown("");setDigestTyping(true);
+    if(ANTHROPIC_KEY){
+      try{
+        const streamSourcesForDigest=sources.filter(s=>s.streamId===activeStreamId);
+        const res=await fetch("https://api.anthropic.com/v1/messages",{
+          method:"POST",
+          headers:{"Content-Type":"application/json","x-api-key":ANTHROPIC_KEY,"anthropic-version":"2023-06-01"},
+          body:JSON.stringify({
+            model:"claude-sonnet-4-6",max_tokens:1000,
+            messages:[{role:"user",content:`You are a research analyst. Given these sources from the "${stream.label}" work stream, write a 3-4 sentence analyst digest summarizing the current state of the research landscape, key patterns, and gaps. Be specific and cite source titles where relevant. Sources: ${JSON.stringify(streamSourcesForDigest.map(s=>({title:s.title,org:s.org,latestNote:s.updates[0]?.note,tags:s.tags})))}`}]
+          })
+        });
+        const data=await res.json();
+        const text=data.content?.[0]?.text||stream.digest.summary;
+        let i=0;
+        const interval=setInterval(()=>{
+          i+=3;setDigestShown(text.slice(0,i));
+          if(i>=text.length){clearInterval(interval);setDigestTyping(false);}
+        },18);
+        return;
+      }catch{/* fall through to hardcoded digest */}
+    }
+    const full=stream.digest.summary;
     let i=0;
     const interval=setInterval(()=>{
       i+=3;setDigestShown(full.slice(0,i));
