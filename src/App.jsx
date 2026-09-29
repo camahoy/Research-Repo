@@ -7,18 +7,21 @@ const STREAMS = [
   { id: "econ",     label: "Global Economic",    code: "ECO", color: "#A3E8B8", dim: "#1a3a28" },
   { id: "comm",     label: "Commercial",         code: "COM", color: "#E8D5A3", dim: "#3a3020" },
   { id: "polling",  label: "Political Polling",  code: "POL", color: "#D4A3E8", dim: "#2d1e3a" },
+  { id: "aipolicy", label: "AI Policy",          code: "AIP", color: "#F4C6A0", dim: "#3a2010" },
 ];
 
-const SOURCE_TYPES = ["News", "Poll", "Social/X", "Paper", "Manual", "Report", "RSS Feed"];
+const SOURCE_TYPES = ["News", "Poll", "Social/X", "Paper", "Manual", "Report", "RSS Feed", "Policy Document", "Think Tank"];
 
 const TYPE_COLORS = {
-  "News":    "#E8A3A3",
-  "Poll":    "#D4A3E8",
-  "Social/X":"#A3D4E8",
-  "Paper":   "#A3E8B8",
-  "Manual":  "#E8E8A3",
-  "Report":  "#E8D5A3",
-  "RSS Feed":"#C4E8A3",
+  "News":            "#E8A3A3",
+  "Poll":            "#D4A3E8",
+  "Social/X":        "#A3D4E8",
+  "Paper":           "#A3E8B8",
+  "Manual":          "#E8E8A3",
+  "Report":          "#E8D5A3",
+  "RSS Feed":        "#C4E8A3",
+  "Policy Document": "#F4C6A0",
+  "Think Tank":      "#C6D4F4",
 };
 
 // ─── MOCK RSS FEED ITEMS ─────────────────────────────────────────────────────
@@ -115,6 +118,51 @@ const MOCK_FEED_ITEMS = [
     keywords: ["institutional trust", "Congress", "Supreme Court", "polling", "partisanship", "YouGov"],
     date: "2026-05-08",
   },
+  {
+    id: "mock-aip-1", streamId: "aipolicy",
+    title: "Senate AI Working Group Releases Bipartisan Policy Roadmap",
+    source: "Politico Tech", url: "https://politico.com/technology",
+    type: "News",
+    rawSummary: "The bipartisan Senate AI Working Group released a 33-page roadmap calling for sector-specific AI legislation rather than a horizontal framework, targeted investments in government AI capacity, and mandatory reporting for frontier model developers. Stops short of endorsing a standalone AI regulatory agency.",
+    keywords: ["Senate", "AI legislation", "bipartisan", "frontier models", "US AI policy", "regulatory agency"],
+    date: "2026-09-15",
+  },
+  {
+    id: "mock-aip-2", streamId: "aipolicy",
+    title: "EU AI Act: High-Risk System Obligations Now Enforceable",
+    source: "EURACTIV", url: "https://euractiv.com/section/digital/artificial-intelligence",
+    type: "News",
+    rawSummary: "As of August 2026, EU AI Act provisions for high-risk systems under Annex III are now enforceable. National market surveillance authorities have begun first-wave audits. Legal experts flag significant ambiguity in conformity assessment procedures for foundation models used in downstream high-risk applications.",
+    keywords: ["EU AI Act", "high-risk", "enforcement", "Annex III", "conformity assessment", "market surveillance"],
+    date: "2026-09-10",
+  },
+  {
+    id: "mock-aip-3", streamId: "aipolicy",
+    title: "AI Now Institute: 2026 Annual Report — Power and Accountability",
+    source: "AI Now Institute", url: "https://ainowinstitute.org",
+    type: "Report",
+    rawSummary: "AI Now's 2026 report argues that AI governance frameworks have systematically failed to constrain industry power concentration. Key findings: 70% of public AI contracts awarded to three companies; civil society excluded from 89% of regulatory consultations; worker harms from automated decision systems remain unaddressed in all major frameworks.",
+    keywords: ["AI Now", "power concentration", "accountability", "procurement", "civil society", "workers"],
+    date: "2026-09-01",
+  },
+  {
+    id: "mock-aip-4", streamId: "aipolicy",
+    title: "GSMA: AI Infrastructure Investment Gap in Sub-Saharan Africa",
+    source: "GSMA", url: "https://gsma.com/solutions-and-impact/technologies/ai",
+    type: "Report",
+    rawSummary: "GSMA report quantifies a $47B AI infrastructure investment gap across Sub-Saharan Africa through 2030. Compute capacity is 0.3% of US levels; 68% of mobile AI applications rely on cloud inference routed through European data centres. Policy recommendations include regional compute pooling and spectrum allocation reform.",
+    keywords: ["GSMA", "Africa", "AI infrastructure", "compute", "Global South", "investment gap"],
+    date: "2026-08-20",
+  },
+  {
+    id: "mock-aip-5", streamId: "aipolicy",
+    title: "Frontier Model Forum: Updated Incident Reporting Framework",
+    source: "Frontier Model Forum", url: "https://frontier-model-forum.org",
+    type: "Report",
+    rawSummary: "The Frontier Model Forum released v2 of its voluntary AI incident reporting framework, expanding coverage to include near-misses and agentic system failures. Anthropic, Google, Microsoft, and OpenAI are signatories. Critics note the framework is voluntary and lacks a shared public database — disclosures go only to member companies.",
+    keywords: ["Frontier Model Forum", "incident reporting", "agentic AI", "self-governance", "voluntary", "transparency"],
+    date: "2026-09-05",
+  },
 ];
 
 // ─── SEED BRAIN ENTRIES ───────────────────────────────────────────────────────
@@ -151,6 +199,70 @@ const SEED_BRAIN_ENTRIES = [
     summary: "World Bank projects global growth at 2.7% for 2026, slowest since 2008 excluding pandemic. Developing economies face compounding headwinds: dollar strength, debt burden, commodity volatility. Report flags elevated recession probability for 15 countries.",
     keywords: ["World Bank", "global growth", "recession", "developing economies", "forecast"],
     date: "2026-01-10",
+  },
+  {
+    id: "brain-aip-1", streamId: "aipolicy",
+    source: "EU AI Act — Official Text & Implementation Tracker", sourceType: "Manual",
+    url: "https://artificialintelligenceact.eu",
+    summary: "Primary reference for EU AI Act obligations, timelines, and prohibited practices. High-risk system provisions apply from Aug 2026; GPAI model rules (including systemic risk thresholds) now in force. Key tracker for compliance obligations affecting frontier labs operating in the EU.",
+    keywords: ["EU AI Act", "GPAI", "high-risk", "compliance", "prohibited practices", "frontier AI"],
+    date: "2026-09-01",
+  },
+  {
+    id: "brain-aip-2", streamId: "aipolicy",
+    source: "NIST AI Risk Management Framework (AI RMF 1.0)", sourceType: "Report",
+    url: "https://nist.gov/artificial-intelligence",
+    summary: "NIST's voluntary framework for managing AI risks across govern, map, measure, manage functions. Widely adopted as de facto US standard in the absence of federal legislation. Companion profiles for generative AI published Q4 2023. Reference for US federal procurement and contractor requirements.",
+    keywords: ["NIST", "AI RMF", "risk management", "US", "federal", "generative AI"],
+    date: "2026-01-15",
+  },
+  {
+    id: "brain-aip-3", streamId: "aipolicy",
+    source: "CSET — Georgetown Center for Security and Emerging Technology", sourceType: "Report",
+    url: "https://cset.georgetown.edu/publications",
+    summary: "Leading US think tank on AI and national security. Key publications cover: AI talent flows, compute governance, China AI capabilities, export controls, and federal AI acquisition policy. Regular congressional testimony. Strongest US source for AI-national security intersection.",
+    keywords: ["CSET", "AI security", "export controls", "compute governance", "China", "national security"],
+    date: "2026-06-01",
+  },
+  {
+    id: "brain-aip-4", streamId: "aipolicy",
+    source: "Anthropic — Responsible Scaling Policy (RSP)", sourceType: "Manual",
+    url: "https://anthropic.com/news",
+    summary: "Anthropic's commitments framework linking model capability evaluations to deployment decisions. ASL-3 threshold now active; ASL-4 criteria under development. Key primary source for how a frontier lab operationalizes safety commitments. Compare against OpenAI's Preparedness Framework and Google DeepMind's Frontier Safety Framework.",
+    keywords: ["Anthropic", "RSP", "responsible scaling", "ASL", "frontier AI", "safety commitments"],
+    date: "2026-09-01",
+  },
+  {
+    id: "brain-aip-5", streamId: "aipolicy",
+    source: "CIPESA — Collaboration on International ICT Policy for East and Southern Africa", sourceType: "Report",
+    url: "https://cipesa.org",
+    summary: "Primary source for African AI governance landscape. Covers national AI strategies across East/Southern Africa, digital rights, platform regulation, and Global South policy divergence from EU/US frameworks. Essential for any comparative or Africa-focused AI policy analysis.",
+    keywords: ["CIPESA", "Africa", "AI governance", "Global South", "digital rights", "ICT policy"],
+    date: "2026-07-01",
+  },
+  {
+    id: "brain-aip-6", streamId: "aipolicy",
+    source: "OECD AI Policy Observatory", sourceType: "Manual",
+    url: "https://oecd.ai/en/dashboards",
+    summary: "Live dashboard of AI policies, national strategies, and regulatory developments across 60+ countries. Tracks adoption of OECD AI Principles (42 adherents). Useful for cross-jurisdictional comparative analysis and monitoring divergence between EU, US, UK, and Global South approaches.",
+    keywords: ["OECD", "AI principles", "national strategies", "comparative", "global", "dashboard"],
+    date: "2026-08-01",
+  },
+  {
+    id: "brain-aip-7", streamId: "aipolicy",
+    source: "Partnership on AI — Publications & Reports", sourceType: "Report",
+    url: "https://partnershiponai.org",
+    summary: "Multi-stakeholder body (includes Anthropic, Google, Meta, Microsoft, Amazon, civil society orgs). Key outputs: synthetic media framework, responsible AI deployment norms, foundation model transparency guidance. Useful for tracking industry-led self-governance positions.",
+    keywords: ["Partnership on AI", "multi-stakeholder", "synthetic media", "transparency", "self-governance"],
+    date: "2026-05-01",
+  },
+  {
+    id: "brain-aip-8", streamId: "aipolicy",
+    source: "International AI Safety Report 2025 (Bengio et al.)", sourceType: "Report",
+    url: "https://internationalaisafetyreport.org",
+    summary: "State-of-science report commissioned by 30 governments for the AI Safety Summit process. Covers capability trajectories, risk categories (misuse, structural, loss of control), and governance gaps. Primary scientific reference for international AI safety policy. Lead author: Yoshua Bengio.",
+    keywords: ["AI safety", "international", "Bengio", "capability", "risk", "AI Safety Summit"],
+    date: "2025-05-01",
   },
   {
     id: "brain-5", streamId: "comm",
@@ -746,10 +858,11 @@ function OutputView({ entries, activeStream }) {
 // ─── WATCH CONFIG ─────────────────────────────────────────────────────────────
 
 const WATCH_SOURCES = {
-  dma:     ["EC Official Feed", "Politico Europe RSS", "Reuters Tech RSS"],
-  econ:    ["IMF RSS", "World Bank RSS", "FT Economy RSS"],
-  comm:    ["Bloomberg Markets RSS", "WSJ Markets RSS", "Conference Board RSS"],
-  polling: ["FiveThirtyEight RSS", "RealClearPolitics RSS", "YouGov RSS"],
+  dma:      ["EC Official Feed", "Politico Europe RSS", "Reuters Tech RSS"],
+  econ:     ["IMF RSS", "World Bank RSS", "FT Economy RSS"],
+  comm:     ["Bloomberg Markets RSS", "WSJ Markets RSS", "Conference Board RSS"],
+  polling:  ["FiveThirtyEight RSS", "RealClearPolitics RSS", "YouGov RSS"],
+  aipolicy: ["Tech Policy Press", "Politico Tech RSS", "CSET Publications", "EU AI Act Monitor", "Axios AI RSS", "EURACTIV AI RSS"],
 };
 
 function WatchBar({ watchState, onToggle }) {
